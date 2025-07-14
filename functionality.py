@@ -75,7 +75,7 @@ def dervative_fourier_coefficients(coeff,w):
     cos = np.array(coeff[1:N//2+1])
     sin = np.array(coeff[N//2+1:])
 
-    res = np.concatenate([const, -w*mult*sin, mult*w*cos])
+    res = np.concatenate([const, w*mult*sin, -mult*w*cos])
     return res
 
 
