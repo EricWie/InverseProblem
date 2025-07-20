@@ -22,6 +22,40 @@ def solve_equation(coeff, eps, w,t_start =0, num_periods=100):
 
     return sol.sol
 
+def solve_network(A,poly_coeff,eps,w,t_start=0, num_periods=100):
+    """Solves the equation for the given connection, coefficients and excitation."""
+    N = np.shape(A)[0]
+
+    # list for functions (intrinsic dynamics) and roots (starting values)
+    f = []
+    r = []
+    for i in range(N):
+        #add function
+        p = np.poly1d(poly_coeff[i])
+        print(p)
+        f.append(p)
+        #find root corresponding to stable fixpoint
+        roots = p.r
+        print(min(roots))
+        roots = roots[np.isreal(roots)]
+
+        if len(roots)>2:
+            raise ValueError
+        r.append(min(roots))
+    print(f,r)
+    def dxdt(t,x):
+        dx = np.zeros_like(x)
+        # equation at each node
+        for i in range(len(x)):
+            dx[i] += f[i](x[i]) + (A@x)[i]
+        dx[0] += eps*np.cos(w*t)
+        return dx
+    
+    sol = solve_ivp(dxdt,(t_start, 2*np.pi/w*num_periods),r,dense_output=True)
+    return sol.sol
+
+
+
 def gen_fourier_coefficantes(t_start,t_end,x,w,N):
     """input x as a function via interpolation of the solution"""
     coeff = np.zeros(2*N+1, dtype=complex)
@@ -98,3 +132,52 @@ def get_important_info(poly_coeff,eps,w,order):
     D_mat = gen_convolution_matrix(four)
 
     return four, real, D_mat
+
+def get_info_network(A,polycoff,eps,w, order):
+    """give information about the solution of a network in a usefull formate"""
+    T = 2*np.pi/w
+    N = np.shape(A)[0]
+    # solve system
+    sol = solve_network(A,polycoff,eps,w)
+
+    four = []
+    real = []
+    D_mat = []
+    for i in range(N):
+        sol_node_i = lambda t: sol(t)[i]
+
+        four_i = gen_fourier_coefficantes(20*T,22*T,sol_node_i,w,order)
+        real_i = real_fourier(four_i)
+        D_mat_i = gen_convolution_matrix(four_i)
+
+        four.append(four_i)
+        real.append(real_i)
+        D_mat.append(D_mat_i)
+    
+    return four,real,D_mat
+
+
+
+
+def test_slover_net(test):
+    """testet ob die lösung sinvoll aussieht"""
+    A = np.array([[0,1],[1,0]])
+    poly_coeff = [[1,0,-4],[2,0,-10]]
+    eps = 1
+    w = 2*np.pi
+    order = 4
+    if test == 'plot':
+        sol = solve_network(A,poly_coeff,eps,w)
+        ls_t = np.linspace(0,4,1000)
+        ls_x = sol(ls_t).T
+        plt.plot(ls_t,ls_x)
+        plt.show()
+
+    elif test == 'info':
+        get_info_network(A,poly_coeff,eps,w,order)
+
+
+
+if __name__ == '__main__':
+    test_slover_net('info')
+    test_slover_net('plot')
