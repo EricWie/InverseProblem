@@ -5,20 +5,13 @@ import pandas as pd
 
 
 
-def solve_equation(coeff, eps, w,t_start =0, num_periods=100):
+def solve_equation(instrinsic,start, eps, w,t_start =0, num_periods=100):
     """Solve the equation for the given coefficients and excitation."""
 
     perturbation = lambda t: eps*np.cos(w*t)
-
-    p = np.poly1d(coeff)
-    roots = p.r
-    roots = roots[np.isreal(roots)]
-
-    if len(roots)>2:
-        raise ValueError
     
-    func = lambda t,x: np.poly1d(coeff)(x) + perturbation(t)
-    sol = solve_ivp(func, (t_start, 2*np.pi/w*num_periods),(roots[0],),dense_output=True)
+    func = lambda t,x: instrinsic(x) + perturbation(t)
+    sol = solve_ivp(func, (t_start, 2*np.pi/w*num_periods),(start,),rtol=1e-8,atol=1e-9,method='LSODA',dense_output=True)
 
     return sol.sol
 
@@ -32,17 +25,14 @@ def solve_network(A,poly_coeff,eps,w,t_start=0, num_periods=100):
     for i in range(N):
         #add function
         p = np.poly1d(poly_coeff[i])
-        print(p)
         f.append(p)
         #find root corresponding to stable fixpoint
         roots = p.r
-        print(min(roots))
         roots = roots[np.isreal(roots)]
 
         if len(roots)>2:
             raise ValueError
         r.append(min(roots))
-    print(f,r)
     def dxdt(t,x):
         dx = np.zeros_like(x)
         # equation at each node
@@ -113,7 +103,7 @@ def dervative_fourier_coefficients(coeff,w):
     return res
 
 
-def get_important_info(poly_coeff,eps,w,order):
+def get_important_info(intrinsic,start,eps,w,order):
     """ 
     four are the fourier coefficants in the complex world starting with
     e^-i order w t at the zerost entry
@@ -123,7 +113,18 @@ def get_important_info(poly_coeff,eps,w,order):
     """
     T = 2*np.pi/w
 
-    sol = solve_equation(poly_coeff,eps,w)
+    if not callable(intrinsic):
+        
+        p = np.poly1d(intrinsic)
+        roots = p.r
+        roots = roots[np.isreal(roots)]
+        if len(roots)>2:
+            raise ValueError
+        intrinsic = p
+        start = np.real(roots[0])
+
+
+    sol = solve_equation(intrinsic,start,eps,w)
 
     four = gen_fourier_coefficantes(20*T,22*T,sol,w,order)
 
@@ -146,7 +147,7 @@ def get_info_network(A,polycoff,eps,w, order):
     for i in range(N):
         sol_node_i = lambda t: sol(t)[i]
 
-        four_i = gen_fourier_coefficantes(20*T,22*T,sol_node_i,w,order)
+        four_i = gen_fourier_coefficantes(20*T,22*T,sol_node_i,w,order//2)
         real_i = real_fourier(four_i)
         D_mat_i = gen_convolution_matrix(four_i)
 
@@ -161,14 +162,14 @@ def get_info_network(A,polycoff,eps,w, order):
 
 def test_slover_net(test):
     """testet ob die lösung sinvoll aussieht"""
-    A = np.array([[0,1],[1,0]])
+    A = np.array([[0,1],[10,0]])
     poly_coeff = [[1,0,-4],[2,0,-10]]
-    eps = 1
+    eps = 6
     w = 2*np.pi
     order = 4
     if test == 'plot':
         sol = solve_network(A,poly_coeff,eps,w)
-        ls_t = np.linspace(0,4,1000)
+        ls_t = np.linspace(4,10,1000)
         ls_x = sol(ls_t).T
         plt.plot(ls_t,ls_x)
         plt.show()
@@ -179,5 +180,4 @@ def test_slover_net(test):
 
 
 if __name__ == '__main__':
-    test_slover_net('info')
     test_slover_net('plot')
