@@ -2,6 +2,7 @@ import numpy as np
 from scipy.integrate import solve_ivp, quad
 import matplotlib.pyplot as plt
 import pandas as pd
+import numbers
 
 
 
@@ -19,31 +20,55 @@ def solve_network(A,poly_coeff,eps,w,t_start=0, num_periods=100):
     """Solves the equation for the given connection, coefficients and excitation."""
     N = np.shape(A)[0]
 
-    # list for functions (intrinsic dynamics) and roots (starting values)
-    f = []
-    r = []
-    for i in range(N):
-        #add function
-        p = np.poly1d(poly_coeff[i])
-        f.append(p)
+    if isinstance(poly_coeff[0],list):
+        print("list")
+        # list for functions (intrinsic dynamics) and roots (starting values)
+        f = []
+        r = []
+        for i in range(N):
+            #add function
+            p = np.poly1d(poly_coeff[i])
+            f.append(p)
+            #find root corresponding to stable fixpoint
+            roots = p.r
+            roots = roots[np.isreal(roots)]
+
+            if len(roots)>2:
+                raise ValueError
+            r.append(min(roots))
+        def dxdt(t,x):
+            dx = np.zeros_like(x)
+            # equation at each node
+            for i in range(len(x)):
+                dx[i] += f[i](x[i]) + (A@x)[i]
+            dx[0] += eps*np.cos(w*t)
+            return dx
+        
+        sol = solve_ivp(dxdt,(t_start, 2*np.pi/w*num_periods),r,dense_output=True)
+   
+    
+    elif isinstance(poly_coeff[0],numbers.Real):
+        print("identical dynamics")
+        p = np.poly1d(poly_coeff)
         #find root corresponding to stable fixpoint
         roots = p.r
         roots = roots[np.isreal(roots)]
 
         if len(roots)>2:
             raise ValueError
-        r.append(min(roots))
-    def dxdt(t,x):
-        dx = np.zeros_like(x)
-        # equation at each node
-        for i in range(len(x)):
-            dx[i] += f[i](x[i]) + (A@x)[i]
-        dx[0] += eps*np.cos(w*t)
-        return dx
-    
-    sol = solve_ivp(dxdt,(t_start, 2*np.pi/w*num_periods),r,dense_output=True)
-    return sol.sol
+        root = min(roots)
 
+        def dxdt(t,x):
+            dx = np.zeros_like(x)
+            # equation at each node
+            for i in range(len(x)):
+                dx[i] += p(x[i]) + (A@x)[i]
+            dx[0] += eps*np.cos(w*t)
+            return dx        
+
+        
+        sol = solve_ivp(dxdt,(t_start, 2*np.pi/w*num_periods),np.full(N,root),dense_output=True)
+    return sol.sol
 
 
 def gen_fourier_coefficantes(t_start,t_end,x,w,N):
@@ -162,8 +187,8 @@ def get_info_network(A,polycoff,eps,w, order):
 
 def test_slover_net(test):
     """testet ob die lösung sinvoll aussieht"""
-    A = np.array([[0,1],[10,0]])
-    poly_coeff = [[1,0,-4],[2,0,-10]]
+    A = np.array([[-10,1],[10,-1]])
+    poly_coeff = [1,0,-4]
     eps = 6
     w = 2*np.pi
     order = 4
