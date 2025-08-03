@@ -24,9 +24,11 @@ def inverse_problem(real, D_mat, num_coeff, eps, w):
     coeff = inv_mat @ lhs
     return coeff
 
-def main(func):
+def main_inverse_problem():
     w = 2 * np.pi
     eps = 10
+    
+    func = 'poly'
     if func =='poly':
         #largest coefficant must be positiv else solver diverges
         poly_coeff = np.array([1, 0, 1,0,-6])
@@ -49,8 +51,6 @@ def main(func):
         intri = lambda x: 6*np.cos(x)
         four, real, D_mat = get_important_info(intri,start=np.pi/2,eps=eps, w=w, order=order)
         pr(inverse_problem(real, D_mat,num_coeff,eps,w))
-
-
 
 def inverse_problem_unknow_excite(real,D_mat, w, num_coef, ep_order=1):
     """ finds coeeficants and pertubation from timeseries"""
@@ -86,18 +86,17 @@ def main_unknow_excite():
     pr(coeff_eps)
 
 
-
-def inverse_problem_network(ls_real,ls_D_mat,w,num_coeff,add_order_eps):
+def inverse_problem_network(ls_real,ls_D_mat,w,num_coeff,order_eps):
     N = len(ls_real)
 
     ls_coeff = []
     ls_eps = []
-
+    # looking at each node seperatly
     for i in range(N):
         real = ls_real[i]
         D_mat = ls_D_mat[i]
-
-        coeff_poly, coeff_eps = inverse_problem_unknow_excite(real,D_mat, w, num_coeff, ep_order=N+add_order_eps)
+        #solving the inv. Problem
+        coeff_poly, coeff_eps = inverse_problem_unknow_excite(real,D_mat, w, num_coeff, ep_order=order_eps)
 
         ls_coeff.append(coeff_poly)
         ls_eps.append(coeff_eps)
@@ -106,48 +105,24 @@ def inverse_problem_network(ls_real,ls_D_mat,w,num_coeff,add_order_eps):
 def main_network():
     """network reconstruction form time series data"""
     # Parameter definition
-    A = np.array([[0,0],[10,0]])
+    A = np.array([[0,0],[1,0]])
     poly_coeff = [[1,0,-4],[1,0,-4]]
     eps = 10
     w = 2*np.pi
     order = len(poly_coeff[0])
-    add_order = 10
-    add_order_eps = 1
+    add_order = 3
+    order_eps = 1
 
     # get timeseriers data from the network
     ls_four,ls_real,ls_D_mat = get_info_network(A,poly_coeff,eps,w,order+add_order)
 
     #solve Invers Problem in the Network case
-    ls_coeff, ls_eps = inverse_problem_network(ls_real,ls_D_mat,w,order,add_order_eps)
+    ls_coeff, ls_eps = inverse_problem_network(ls_real,ls_D_mat,w,order,order_eps)
     pr(ls_coeff)
     pr(ls_eps)
 
-def inverse_problem_network_simul(ls_real,ls_D_mat,w,num_coeff,add_order_eps):
-    """solve the networked invers problem when all nodes have the same intrinsic dynamics"""
-    yield
-
-
-def main_network_simul():
-    """network reconstruction form time series data where all nodes have the sam intrinsic dynamics"""
-    # Parameter definition
-    eps = 10
-    w = 2*np.pi
-
-    A = np.array([[0,0],[10,0]])
-    N = np.shape(A)[0]
-    poly_coeff = [1,0,-4]
-
-    order = len(poly_coeff)
-    add_order = 10
-    add_order_eps = 2
-
-    # get timeseriers data from the network
-    ls_four,ls_real,ls_D_mat = get_info_network(A,poly_coeff,eps,w,order+add_order)
-
-    #solve Invers Problem in the Network case
-    inverse_problem_network_simul(ls_real,ls_D_mat,w,order,add_order_eps)
 
 
 
 if __name__ == '__main__':
-    main_network()
+    main_inverse_problem()

@@ -5,11 +5,48 @@ import pandas as pd
 import numbers
 
 
+class fourierseries:
+    """save fourier coefficantes in a cleaner way"""
+    def __init__(self,fouriercoeff):
+         self.order = len(fouriercoeff)//2
+         self.const = fouriercoeff[0]
+         self.cos = fouriercoeff[1:self.order+1]
+         self.sin = fouriercoeff[self.order+1:]
+         self.convolution = gen_convolution_matrix(fouriercoeff) #broken
+
+    def __str__(self) -> str:
+        return f"Constante: {self.const} \n Cos: {self.cos} \n Sin: {self.sin}"
+
+    def eval(self,t,w):
+        res = self.const
+        for j in range(self.order):
+            res += self.cos[j]*np.cos((j+1)*w*t)
+            res += self.sin[j]*np.sin((j+1)*w*t)
+        return res
+    
+    def expand_to_order(self,order):
+        if self.order<order:
+            add_oder = order-self.order
+            zeros = np.zeros(add_oder)
+            self.cos = np.concatenate((self.cos,zeros))
+            self.sin = np.concatenate((self.sin,zeros))
+            self.convolution = gen_convolution_matrix(self.convert_list())
+    def convert_list(self):
+        return np.concatenate(([self.const],self.cos,self.sin))
+    
+    def d_mat(self,degree):
+        return self.convolution[:,:degree]
+
+        
+
+
 
 def solve_equation(instrinsic,start, eps, w,t_start =0, num_periods=100):
     """Solve the equation for the given coefficients and excitation."""
-
-    perturbation = lambda t: eps*np.cos(w*t)
+    if isinstance(eps,fourierseries):
+        perturbation = lambda t: eps.eval(t,w)
+    else:
+        perturbation = lambda t: eps*np.cos(w*t)
     
     func = lambda t,x: instrinsic(x) + perturbation(t)
     sol = solve_ivp(func, (t_start, 2*np.pi/w*num_periods),(start,),rtol=1e-8,atol=1e-9,method='LSODA',dense_output=True)
@@ -182,9 +219,6 @@ def get_info_network(A,polycoff,eps,w, order):
     
     return four,real,D_mat
 
-
-
-
 def test_slover_net(test):
     """testet ob die lösung sinvoll aussieht"""
     A = np.array([[-10,1],[10,-1]])
@@ -205,4 +239,7 @@ def test_slover_net(test):
 
 
 if __name__ == '__main__':
-    test_slover_net('plot')
+    test = fourierseries([0,1,0,0,1])
+    print(test.convolution)
+    test.expand_to_order(4)
+    print(test.d_mat(3))
