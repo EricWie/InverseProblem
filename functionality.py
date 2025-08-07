@@ -12,7 +12,9 @@ class fourierseries:
          self.const = fouriercoeff[0]
          self.cos = fouriercoeff[1:self.order+1]
          self.sin = fouriercoeff[self.order+1:]
-         self.convolution = gen_convolution_matrix(fouriercoeff) #broken
+    
+    def convolution(self):
+        return gen_convolution_matrix(self.complex_rep()) #input comlex representation
 
     def __str__(self) -> str:
         return f"Constante: {self.const} \n Cos: {self.cos} \n Sin: {self.sin}"
@@ -30,27 +32,38 @@ class fourierseries:
             zeros = np.zeros(add_oder)
             self.cos = np.concatenate((self.cos,zeros))
             self.sin = np.concatenate((self.sin,zeros))
-            self.convolution = gen_convolution_matrix(self.convert_list())
+
     def convert_list(self):
         return np.concatenate(([self.const],self.cos,self.sin))
     
+    def complex_rep(self):
+        comp_rep = np.zeros(self.order*2+1, dtype=complex)
+        for k in range(self.order):
+            comp_rep[k]+= self.cos[-k-1]/2-1.0j*self.sin[-k-1]/2
+            comp_rep[-k-1]+= self.cos[-k-1]/2+1.0j*self.sin[-k-1]/2
+        comp_rep[self.order]=self.const
+        return comp_rep
+    
     def d_mat(self,degree):
-        return self.convolution[:,:degree]
+        return self.convolution()[:,:degree]
+    
+    def derivativ(self,w):
+        mult = np.arange(1,self.order+1,1)
+        res = np.concatenate(([0],w*mult*self.sin,-w*mult*self.cos))
+        return res
 
         
 
 
 
-def solve_equation(instrinsic,start, eps, w,t_start =0, num_periods=100):
+def solve_equation(instrinsic,start, eps:fourierseries, w,t_start =0, num_periods=100):
     """Solve the equation for the given coefficients and excitation."""
-    if isinstance(eps,fourierseries):
-        perturbation = lambda t: eps.eval(t,w)
-    else:
-        perturbation = lambda t: eps*np.cos(w*t)
+    if not isinstance(eps,fourierseries):
+        print("eps should be fourierseries")
+    perturbation = lambda t: eps.eval(t,w)
     
     func = lambda t,x: instrinsic(x) + perturbation(t)
     sol = solve_ivp(func, (t_start, 2*np.pi/w*num_periods),(start,),rtol=1e-8,atol=1e-9,method='LSODA',dense_output=True)
-
     return sol.sol
 
 def solve_network(A,poly_coeff,eps,w,t_start=0, num_periods=100):
@@ -142,6 +155,7 @@ def convol_k_times(coeff, k):
 
 def gen_convolution_matrix(coeff):
     """Generate the convolution matrix for the Fourier coefficients."""
+    #uses complex represenation as input
     N = len(coeff)
     D = np.zeros((N, N))
     for k in range(N-1):
@@ -152,20 +166,7 @@ def gen_convolution_matrix(coeff):
     D[0,0] = 1
     return D
 
-def dervative_fourier_coefficients(coeff,w):
-    """Calculate the Fourier coefficients of the derivative of a function."""
-    N = len(coeff)
-    
-    mult = np.arange(1,N//2+1,1)
-    const = np.array([0])
-    cos = np.array(coeff[1:N//2+1])
-    sin = np.array(coeff[N//2+1:])
-
-    res = np.concatenate([const, w*mult*sin, -mult*w*cos])
-    return res
-
-
-def get_important_info(intrinsic,start,eps,w,order):
+def get_important_info(intrinsic,start:float,eps:fourierseries,w:float,order:int)-> fourierseries: 
     """ 
     four are the fourier coefficants in the complex world starting with
     e^-i order w t at the zerost entry
@@ -192,9 +193,7 @@ def get_important_info(intrinsic,start,eps,w,order):
 
     real = real_fourier(four)
 
-    D_mat = gen_convolution_matrix(four)
-
-    return four, real, D_mat
+    return fourierseries(real)
 
 def get_info_network(A,polycoff,eps,w, order):
     """give information about the solution of a network in a usefull formate"""
@@ -239,7 +238,5 @@ def test_slover_net(test):
 
 
 if __name__ == '__main__':
-    test = fourierseries([0,1,0,0,1])
-    print(test.convolution)
-    test.expand_to_order(4)
-    print(test.d_mat(3))
+    test = fourierseries([0,0,1])
+    print(test.complex_rep())
