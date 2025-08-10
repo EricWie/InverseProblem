@@ -9,8 +9,8 @@ def pr(x):
     df = pd.DataFrame(x)
     print(df)
 
-def inverse_problem(fourier, num_coeff, eps, w):
-    """normal invers proble with excitation eps*cos"""
+def inverse_problem(fourier, num_coeff, eps, w, no_linear_coeff=False):
+    """normal invers problem with arbitray excitation"""
     # so that eps and fourier are compatible
     eps.expand_to_order(fourier.order)
     #lefthand side of the equation
@@ -18,16 +18,18 @@ def inverse_problem(fourier, num_coeff, eps, w):
     lhs -= eps.convert_list()
     # solve for coefficant vector with penroseinverse
     new_conv_mat = fourier.d_mat(num_coeff)
-    
-    print(fourier)
+    if no_linear_coeff:
+        new_conv_mat = np.delete(new_conv_mat,1, axis=1)
+
 
     inv_mat = np.linalg.pinv(new_conv_mat)
-    pr(new_conv_mat) 
     coeff = inv_mat @ lhs   
-
+    if no_linear_coeff:
+        coeff = np.insert(coeff,1,0)
     return coeff
 
 def main_inverse_problem(): 
+    """solves example inverse problem for 0 node with given exitation"""
     w = 2 * np.pi
     eps = fourierseries([0,10,0])
 
@@ -55,8 +57,47 @@ def main_inverse_problem():
         fourier = get_important_info(intri,start=np.pi/2,eps=eps, w=w, order=order)
         pr(inverse_problem(fourier,num_coeff,eps,w))
 
+def inverse_problem_network(A,ls_fourier, eps, w,num_coeff):
+    """solves inverser problem in a network"""
+    # number of nodes
+    N = len(ls_fourier)
+    ls_coeffs = []
+    # give excitation the right length
+    eps.expand_to_order(ls_fourier[0].order)
+    for i in range(N):
+        eps_i = np.zeros_like(ls_fourier[0].convert_list())
+        for k in range(N):
+            # add up excitation from other nodes
+            eps_i += A[i,k]*ls_fourier[k].convert_list()
+        if i == 0:
+            # add exciation to 0st node
+            eps_i += eps.convert_list()
+        
+        perturb_i = fourierseries(eps_i)
 
+        # solve inverse problem for each node
+        coeff_i = inverse_problem(ls_fourier[i],num_coeff,perturb_i,w,no_linear_coeff=True)
 
+        ls_coeffs.append(coeff_i)
+    return ls_coeffs
+
+def main_network():
+    # network matrix
+    A = np.array([[-2,1,1],[10,-12,2],[5,0,-10]])
+    # coefficants matix
+    poly_coeff = ([1,0,-4],[1,0,-6],[1,0,-8])
+    # exciation at node 0
+    eps = fourierseries([0,10,0])
+    #periode
+    w = 2*np.pi
+    # order of fouriercoefficants used
+    order = 22
+    # order of returned coefficants of intrinsic dynamics
+    num_coeff = 5
+    ls_fourier = get_info_network(A,poly_coeff,eps,w,order)
+    
+    ls_res_coeff = inverse_problem_network(A,ls_fourier, eps, w,num_coeff)
+    pr(ls_res_coeff)
 
 
 """
@@ -95,4 +136,4 @@ def main_unknow_excite():
 """
 
 if __name__ == '__main__':
-    main_inverse_problem()
+    main_network()

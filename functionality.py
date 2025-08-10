@@ -91,7 +91,7 @@ def solve_network(A,poly_coeff,eps,w,t_start=0, num_periods=100):
             # equation at each node
             for i in range(len(x)):
                 dx[i] += f[i](x[i]) + (A@x)[i]
-            dx[0] += eps*np.cos(w*t)
+            dx[0] += eps.eval(t,w)
             return dx
         
         sol = solve_ivp(dxdt,(t_start, 2*np.pi/w*num_periods),r,dense_output=True)
@@ -113,7 +113,7 @@ def solve_network(A,poly_coeff,eps,w,t_start=0, num_periods=100):
             # equation at each node
             for i in range(len(x)):
                 dx[i] += p(x[i]) + (A@x)[i]
-            dx[0] += eps*np.cos(w*t)
+            dx[0] += eps.eval(t,w)
             return dx        
 
         
@@ -195,34 +195,29 @@ def get_important_info(intrinsic,start:float,eps:fourierseries,w:float,order:int
 
     return fourierseries(real)
 
-def get_info_network(A,polycoff,eps,w, order):
+def get_info_network(A,polycoff,eps:fourierseries,w:float, order:int):
     """give information about the solution of a network in a usefull formate"""
     T = 2*np.pi/w
     N = np.shape(A)[0]
     # solve system
     sol = solve_network(A,polycoff,eps,w)
 
-    four = []
-    real = []
-    D_mat = []
+    ls_four = []
     for i in range(N):
         sol_node_i = lambda t: sol(t)[i]
 
         four_i = gen_fourier_coefficantes(20*T,22*T,sol_node_i,w,order//2)
         real_i = real_fourier(four_i)
-        D_mat_i = gen_convolution_matrix(four_i)
-
-        four.append(four_i)
-        real.append(real_i)
-        D_mat.append(D_mat_i)
+        ls_four.append(fourierseries(real_i))
     
-    return four,real,D_mat
+    return ls_four
+
 
 def test_slover_net(test):
     """testet ob die lösung sinvoll aussieht"""
-    A = np.array([[-10,1],[10,-1]])
+    A = np.array([[-10,10],[1,-1]])
     poly_coeff = [1,0,-4]
-    eps = 6
+    eps = fourierseries([0,6,0])
     w = 2*np.pi
     order = 4
     if test == 'plot':
@@ -238,5 +233,4 @@ def test_slover_net(test):
 
 
 if __name__ == '__main__':
-    test = fourierseries([0,0,1])
-    print(test.complex_rep())
+    test_slover_net('plot')
