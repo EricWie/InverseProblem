@@ -56,13 +56,13 @@ class fourierseries:
 
 
 
-def solve_equation(instrinsic,start, eps:fourierseries, w,t_start =0, num_periods=100):
+def solve_equation(intrinsic,start, eps:fourierseries, w,t_start =0, num_periods=100):
     """Solve the equation for the given coefficients and excitation."""
     if not isinstance(eps,fourierseries):
         print("eps should be fourierseries")
     perturbation = lambda t: eps.eval(t,w)
     
-    func = lambda t,x: instrinsic(x) + perturbation(t)
+    func = lambda t,x: intrinsic(x) + perturbation(t)
     sol = solve_ivp(func, (t_start, 2*np.pi/w*num_periods),(start,),rtol=1e-8,atol=1e-9,method='LSODA',dense_output=True)
     return sol.sol
 
@@ -120,6 +120,16 @@ def solve_network(A,poly_coeff,eps,w,t_start=0, num_periods=100):
         sol = solve_ivp(dxdt,(t_start, 2*np.pi/w*num_periods),np.full(N,root),dense_output=True)
     return sol.sol
 
+def solve_seconde_order(a,intrinsic,start, eps:fourierseries, w , t_start =0, num_periods=100):
+    """solves equation of type d^2x/(dt)^2+a*dx/dt=f(x)+eps(t)"""
+    if not isinstance(eps,fourierseries):
+        print("eps should be fourierseries")
+    pertubation = lambda t: eps.eval(t,w)
+    # res[0] is dxdt res[1] is ddx/dt^2
+    def dydt(t,x):
+        return np.array([x[1],(intrinsic(x[0])+pertubation(t)-a*x[1])])
+    sol = solve_ivp(dydt, (t_start, 2*np.pi/w*num_periods),(start,0),rtol=1e-8,atol=1e-9,method='LSODA',dense_output=True)
+    return sol.sol
 
 def gen_fourier_coefficantes(t_start,t_end,x,w,N):
     """input x as a function via interpolation of the solution"""
@@ -212,6 +222,27 @@ def get_info_network(A,polycoff,eps:fourierseries,w:float, order:int):
     
     return ls_four
 
+def get_info_seconde_order(a,intrinsic,start,eps:fourierseries,w:float,order:int):
+    """returns fourier coefficants of the second order 1 node system"""
+    T = 2*np.pi/w
+    if not callable(intrinsic):
+        
+        p = np.poly1d(intrinsic)
+        roots = p.r
+        roots = roots[np.isreal(roots)]
+        if len(roots)>2:
+            raise ValueError
+        intrinsic = p
+        start = np.real(roots[0])
+
+    sol = solve_seconde_order(a,intrinsic,start,eps,w)
+    position = lambda t: sol(t)[0]
+
+    four = gen_fourier_coefficantes(20*T,22*T,position,w,order)
+
+    real = real_fourier(four)
+
+    return fourierseries(real)
 
 def test_slover_net(test):
     """testet ob die lösung sinvoll aussieht"""
@@ -230,7 +261,20 @@ def test_slover_net(test):
     elif test == 'info':
         get_info_network(A,poly_coeff,eps,w,order)
 
+def test_2nd_order():
+    """test for solver of 2nd order diffrential"""
+    w = 2 * np.pi
+    a = 1 
+    intrinsic = lambda x: x**2-4
+    start = -2
+    eps = fourierseries([0,10,0])
+
+    sol = solve_seconde_order(a,intrinsic,start,eps,w)
+    ls_t = np.linspace(4,10,1000)
+    ls_x = sol(ls_t).T
+    plt.plot(ls_t,ls_x)
+    plt.show()
 
 
 if __name__ == '__main__':
-    test_slover_net('plot')
+    test_2nd_order()

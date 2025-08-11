@@ -16,15 +16,20 @@ def inverse_problem(fourier, num_coeff, eps, w, no_linear_coeff=False):
     #lefthand side of the equation
     lhs = fourier.derivativ(w)
     lhs -= eps.convert_list()
+
     # solve for coefficant vector with penroseinverse
     new_conv_mat = fourier.d_mat(num_coeff)
+
     if no_linear_coeff:
+        # delet linear row so that it has no impact
         new_conv_mat = np.delete(new_conv_mat,1, axis=1)
 
-
+    #solve inverse problem
     inv_mat = np.linalg.pinv(new_conv_mat)
     coeff = inv_mat @ lhs   
+
     if no_linear_coeff:
+        #insert 0  so that the size still fits
         coeff = np.insert(coeff,1,0)
     return coeff
 
@@ -100,40 +105,38 @@ def main_network():
     pr(ls_res_coeff)
 
 
-"""
-def inverse_problem_unknow_excite(real,D_mat, w, num_coef, ep_order=1):
-    # finds coeeficants and pertubation from timeseries
-    # matrix for the fourier coefficants  
-    eps_mat  = np.zeros((len(real),2*ep_order))
-    for i in range(2*ep_order):
+def inverse_problem_unknown_excite(fourier,w,num_coeff,eps_order=1):
+    """find both taylor expansion of intrinsic dynamics and excitation at the same time"""
+    #addition to find the exciation
+    N = len(fourier.convert_list())
+    eps_mat  = np.zeros((N,2*eps_order))
+    for i in range(eps_order):
         eps_mat[i+1,i] = 1
+    for i in range(eps_order):
+        eps_mat[fourier.order+i+1,i+eps_order] = 1
+    #lefthand side of the equation
+    lhs = fourier.derivativ(w)
 
-    diff_coff = dervative_fourier_coefficients(real,w)
-
-    lhs = diff_coff
-
-    new_conv_mat = D_mat[:,:num_coef]
+    new_conv_mat = fourier.d_mat(num_coeff)
 
     new_conv_mat = np.hstack((new_conv_mat,eps_mat))
 
     inv_mat = np.linalg.pinv(new_conv_mat)
     coeff = inv_mat @ lhs
-    return coeff[:-2*ep_order],coeff[-2*ep_order:]
+    return coeff[:-2*eps_order],fourierseries(np.concatenate(([0],coeff[-2*eps_order:])))
 
 def main_unknow_excite():
+    """example for determining the excitation in a 0-D system"""
     w = 2 * np.pi
-    eps = 10
-    #largest coefficant must be positiv else solver diverges
-    poly_coeff = np.array([1, 0, 1,0,-6])  
-    N = len(poly_coeff)
-    add_order = 10           
-    
-    four, real, D_mat = get_important_info(poly_coeff,None, eps, w,  N//2+add_order)
+    poly_coeff = [1,0,-4]
+    eps = fourierseries([0,10,2,1,3,])
+    order = 12
+    fourier = get_important_info(poly_coeff,start=None,eps=eps, w=w, order=order) # type: ignore 
 
-    coeff_pol,coeff_eps = inverse_problem_unknow_excite(real, D_mat, w,N,ep_order=1)
-    pr(coeff_pol)
-    pr(coeff_eps)
-"""
+    intrinsic, eps_calc = inverse_problem_unknown_excite(fourier,w,num_coeff=4,eps_order=3)
+    pr(intrinsic)
+    print(eps_calc)
+
 
 if __name__ == '__main__':
     main_network()
