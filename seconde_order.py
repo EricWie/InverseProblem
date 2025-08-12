@@ -5,8 +5,6 @@ import pandas as pd
 from functionality import *
 from main import *
 
-
-
 def inverse_problem_seconde_order(fourier:fourierseries, num_coeff, eps:fourierseries, w):
     """solves seconde oderer inverse problem: d^2x/(dt)^2+a*dx/dt=f(x)+eps(t)"""
     eps.expand_to_order(fourier.order)
@@ -36,3 +34,7 @@ def main_second_order():
     fourier = get_info_seconde_order(a,intrinsic,start=None,eps=eps,w=w,order=order)
 
     inverse_problem_seconde_order(fourier,len(intrinsic),eps,w)
+
+
+if __name__ ==  '__main__':
+    main_second_order()

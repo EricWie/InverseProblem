@@ -54,8 +54,6 @@ class fourierseries:
 
         
 
-
-
 def solve_equation(intrinsic,start, eps:fourierseries, w,t_start =0, num_periods=100):
     """Solve the equation for the given coefficients and excitation."""
     if not isinstance(eps,fourierseries):
@@ -137,8 +135,15 @@ def gen_fourier_coefficantes(t_start,t_end,x,w,N):
 
     for k in range(2*N+1):
         func = lambda t: np.exp(1.0j*(k-N)*w*t)*x(t)
-        coeff[k] = quad(func,t_start,t_end,complex_func=True)[0]/(t_end-t_start)
-    return np.round(coeff,12)
+        coeff[k] = quad(func,t_start,t_end,complex_func=True,epsrel=1e-9,epsabs=1e-10,limit=1000)[0]/(t_end-t_start)
+    return coeff
+
+def check_half_fourier_coefficants(t_start,t_end,x,w):
+    """returns fractional orders to check periodicity"""
+    func = lambda t: np.exp(1.0j/2*w*t)*x(t)
+    coeff = quad(func,t_start,t_end,complex_func=True,epsrel=1e-12,epsabs=1e-12)[0]/(t_end-t_start)
+    print(f'the first fractional periode has cos={np.real(coeff)*2} and sin=-{np.imag(coeff)*2}')
+    return coeff
 
 def real_fourier(coeff,order=None):
     """return coefficant infront of sine , cosine and constant"""
@@ -200,8 +205,12 @@ def get_important_info(intrinsic,start:float,eps:fourierseries,w:float,order:int
     sol = solve_equation(intrinsic,start,eps,w)
 
     four = gen_fourier_coefficantes(20*T,22*T,sol,w,order)
+    check_half_fourier_coefficants(20*T,22*T,sol,w)
+
 
     real = real_fourier(four)
+    if real[0]>10:
+        print("waring: might be unstable")
 
     return fourierseries(real)
 
@@ -239,8 +248,12 @@ def get_info_seconde_order(a,intrinsic,start,eps:fourierseries,w:float,order:int
     position = lambda t: sol(t)[0]
 
     four = gen_fourier_coefficantes(20*T,22*T,position,w,order)
+    check_half_fourier_coefficants(20*T,22*T,position,w)
 
     real = real_fourier(four)
+
+    if real[0]>10:
+        print("waring: might be unstable")
 
     return fourierseries(real)
 
@@ -264,7 +277,7 @@ def test_slover_net(test):
 def test_2nd_order():
     """test for solver of 2nd order diffrential"""
     w = 2 * np.pi
-    a = 1 
+    a = 0.1
     intrinsic = lambda x: x**2-4
     start = -2
     eps = fourierseries([0,10,0])

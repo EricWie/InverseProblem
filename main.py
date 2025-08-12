@@ -38,7 +38,7 @@ def main_inverse_problem():
     w = 2 * np.pi
     eps = fourierseries([0,10,0])
 
-    func = 'cos'
+    func = 'poly'
     if func =='poly':
         #largest coefficant must be positiv else solver diverges
         poly_coeff = np.array([1,0,1,0,-6])
@@ -97,10 +97,10 @@ def main_unknow_excite():
     order = 12
     fourier = get_important_info(poly_coeff,start=None,eps=eps, w=w, order=order) # type: ignore 
 
-    intrinsic, eps_calc = inverse_problem_unknown_excite(fourier,w,num_coeff=4,eps_order=3)
+    intrinsic, eps_calc = inverse_problem_unknown_excite(fourier,w,num_coeff=4,eps_order=8 )
     pr(intrinsic)
     print(eps_calc)
 
 
 if __name__ == '__main__':
-    main_inverse_problem()
+    main_unknow_excite()
